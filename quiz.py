@@ -51,7 +51,7 @@ class QuizDialog(Gtk.Dialog):
 	def eval(self):
 		text = self.entry.get_text()
 		if text.isnumeric() and int(text) == self.answer:
-			if self.n == self.total:
+			if self.n >= self.total:
 				self.n = 1
 				self.response(Gtk.ResponseType.OK)
 				return

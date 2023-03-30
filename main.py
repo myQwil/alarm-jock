@@ -7,8 +7,6 @@ import password as p
 from sys import path
 from threading import Thread
 from datetime import datetime, timedelta
-
-path.append(f'{path[0]}/../pylibpd')
 import pdmain as pd
 
 import gi

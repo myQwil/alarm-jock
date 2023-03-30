@@ -34,7 +34,7 @@
 #X obj 230 250 clip 0 1;
 #X floatatom 170 280 0 0 1 0 - - - 0;
 #X obj 230 220 dbtorms;
-#X obj 270 190 + 0.4;
+#X obj 270 190 + 0.1;
 #X msg 270 150 100;
 #X msg 230 150 67;
 #X obj 230 190 67;

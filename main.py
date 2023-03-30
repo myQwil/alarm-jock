@@ -17,7 +17,7 @@ from gi.repository import Gtk, Gdk, GLib
 
 # Preferences
 
-password = '123'
+password = None
 'password for stopping the alarm noise'
 
 volume = 0.07
@@ -75,44 +75,51 @@ class AlarmWindow(Gtk.Window):
 		Gtk.StyleContext().add_provider_for_screen( Gdk.Screen.get_default()
 			,provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION )
 		provider.load_from_data(b'''
-			.switch {font-size: 16pt}
-			.time   {font-size: 24pt}
-			.on     {color: turquoise}
-			.off    {color: grey}
-			.beep   {color: pink}
-			.snooze {color: gold}
+			.pad    { font-size: 2pt; }
+			.switch { font-size: 16pt; }
+			.time   { font-size: 24pt; }
+			.on     { color: turquoise; }
+			.off    { color: grey; }
+			.beep   { color: pink; }
+			.snooze { color: gold; }
 		''')
 
 		# # table
 		table = Gtk.Table()
 		self.add(table)
-		i = 0 # row index
+		row = 0
+
+		dummy = Gtk.Label()
+		context = dummy.get_style_context()
+		context.add_class('pad')
+		table.attach(dummy, 0, 6, row, row+1)
+		row += 1
 
 		# # alarm switch
 		self.switch = Gtk.Switch()
 		self.switch.connect('notify::active', self.on_switch)
 		self.switch.set_active(False)
-		table.attach(self.switch, 0, 6, i, i+1)
+		table.attach(self.switch, 1, 5, row, row+1)
 		# add a dummy label to make the switch taller
 		dummy = Gtk.Label()
 		context = dummy.get_style_context()
 		context.add_class('switch')
-		table.attach(dummy, 0, 6, i, i+1)
-		i += 1
+		table.attach(dummy, 0, 6, row, row+1)
+		row += 1
 
 		# # clock label
 		self.lbl_clock = Gtk.Label(label = datetime.now().strftime('%H:%M:%S'))
 		self.context = self.lbl_clock.get_style_context()
 		self.context.add_class('time')
 		self.context.add_class(self.color)
-		table.attach(self.lbl_clock, 0, 6, i, i+1)
-		i += 1
+		table.attach(self.lbl_clock, 0, 6, row, row+1)
+		row += 1
 
 		# # time labels
-		table.attach(Gtk.Label(label = 'Hour'), 0, 2, i, i+1)
-		table.attach(Gtk.Label(label = 'Min') , 2, 4, i, i+1)
-		table.attach(Gtk.Label(label = 'Sec') , 4, 6, i, i+1)
-		i += 1
+		table.attach(Gtk.Label(label = 'Hour'), 0, 2, row, row+1)
+		table.attach(Gtk.Label(label = 'Min') , 2, 4, row, row+1)
+		table.attach(Gtk.Label(label = 'Sec') , 4, 6, row, row+1)
+		row += 1
 
 		# # spin buttons
 		hr = alarm / 3600
@@ -123,30 +130,30 @@ class AlarmWindow(Gtk.Window):
 		adjust = Gtk.Adjustment(value=int(hr), lower=0, upper=23, step_increment=1)
 		self.hur = Gtk.SpinButton()
 		self.hur.set_adjustment(adjust)
-		table.attach(self.hur, 0, 2, i, i+1)
+		table.attach(self.hur, 0, 2, row, row+1)
 
 		# # minutes
 		adjust = Gtk.Adjustment(value=int(mn), lower=0, upper=59, step_increment=1)
 		self.min = Gtk.SpinButton()
 		self.min.set_adjustment(adjust)
-		table.attach(self.min, 2, 4, i, i+1)
+		table.attach(self.min, 2, 4, row, row+1)
 
 		# # seconds
 		adjust = Gtk.Adjustment(value=int(sc), lower=0, upper=59, step_increment=1)
 		self.sec = Gtk.SpinButton()
 		self.sec.set_adjustment(adjust)
-		table.attach(self.sec, 4, 6, i, i+1)
-		i += 1
+		table.attach(self.sec, 4, 6, row, row+1)
+		row += 1
 
 		# # button for testing the max volume
 		button = Gtk.Button(label='Test Volume')
 		button.connect('clicked', self.on_test_clicked)
-		table.attach(button, 0, 3, i, i+1)
+		table.attach(button, 0, 3, row, row+1)
 
 		# # button for saving the alarm time
 		button = Gtk.Button(label='Save Alarm')
 		button.connect('clicked', self.on_save_clicked)
-		table.attach(button, 3, 6, i, i+1)
+		table.attach(button, 3, 6, row, row+1)
 
 		GLib.timeout_add(999, self.tick)
 
@@ -178,6 +185,9 @@ class AlarmWindow(Gtk.Window):
 			self.audio.join()
 
 	def pwd_success(self):
+		if not password:
+			self.set_alarm(False, snooze=True)
+			return True
 		dialog = p.PasswordDialog(self)
 		result = (dialog.run() == Gtk.ResponseType.OK
 			and dialog.get_result() == password)
@@ -257,6 +267,5 @@ class AlarmWindow(Gtk.Window):
 		    or (self.timer and not self.quiz_success())
 
 
-win = AlarmWindow()
-win.show_all()
+AlarmWindow().show_all()
 Gtk.main()

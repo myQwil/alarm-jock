@@ -14,7 +14,7 @@
    <string>Alarm Jock</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout" stretch="1,0,0">
+   <layout class="QVBoxLayout" name="verticalLayout" stretch="1,0">
     <item>
      <widget class="DigitalClock" name="lcdClock">
       <property name="autoFillBackground">
@@ -29,7 +29,7 @@
      </widget>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="hboxSpins">
+     <layout class="QHBoxLayout" name="hboxSpins" stretch="1,1,1,3">
       <item>
        <widget class="QSpinBox" name="spnHour">
         <property name="maximum">
@@ -51,21 +51,10 @@
         </property>
        </widget>
       </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="hboxButtons">
       <item>
        <widget class="QPushButton" name="btnTest">
         <property name="text">
          <string>Test Volume</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="btnSave">
-        <property name="text">
-         <string>Save Alarm</string>
         </property>
        </widget>
       </item>

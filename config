@@ -1,3 +1,5 @@
 volume 0.07
 alarm 10800
 snooze 1800
+#password abc
+#questions 3

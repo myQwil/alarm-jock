@@ -1,6 +1,10 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "quizdialog.h"
 #include <QStandardPaths>
+#include <QInputDialog>
+#include <QCloseEvent>
+#include <QMessageBox>
 #include <QTime>
 
 enum {
@@ -26,12 +30,13 @@ static void callback(void *lpd, Uint8 *stream, int size) {
 }
 
 
-MainWindow::MainWindow(QWidget *parent)
-	: QMainWindow(parent)
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 	, ui(new Ui::MainWindow)
 	, dev(0)
 	, state(Alarm::Off)
 	, snooze(1800)
+	, questions(0)
+	, answered(0)
 {
 	QStringList appdata =
 		QStandardPaths::standardLocations(QStandardPaths::AppDataLocation);
@@ -39,21 +44,32 @@ MainWindow::MainWindow(QWidget *parent)
 	std::string file = path + "/main.pd";
 
 	// read settings
-	int alarm = 0;
+	int alarm = -1;
 	float vol = 0.35;
 	FILE *conf = fopen((path + "/config").c_str(), "r");
 	if (conf) {
 		char line[1000];
 		while (fgets(line, 1000, conf) != NULL) {
-			if (!strncmp(line, "volume", 6)) {
-				vol = strtof(line + 7, NULL);
+			if (line[0] == '#') {
+				continue;
+			} else if (!strncmp(line, "volume", 6)) {
+				vol = fabsf(strtof(line + 7, NULL));
 			} else if (!strncmp(line, "alarm", 5)) {
-				alarm = strtol(line + 6, NULL, 10);
+				alarm = abs(strtol(line + 6, NULL, 10));
 			} else if (!strncmp(line, "snooze", 6)) {
-				snooze = strtol(line + 7, NULL, 10);
+				snooze = abs(strtol(line + 7, NULL, 10));
+			} else if (!strncmp(line, "questions", 9)) {
+				questions = abs(strtol(line + 10, NULL, 10));
+			} else if (!strncmp(line, "password", 8)) {
+				line[strcspn(line, "\r\n")] = '\0';
+				password = line + 9;
 			}
 		}
 		fclose(conf);
+	}
+	if (alarm < 0) {
+		QTime now = QTime::currentTime();
+		alarm = (now.hour()*3600 + now.minute()*60 + now.second()+3) % 86400;
 	}
 
 	// initialize audio
@@ -65,6 +81,7 @@ MainWindow::MainWindow(QWidget *parent)
 		SDL_CloseAudio();
 		fail("Error initializing pd.");
 	}
+	lpd.setReceiver(this);
 
 	std::size_t end = file.find_last_of("/\\");
 	patch = lpd.openPatch(file.substr(end + 1), file.substr(0, end));
@@ -87,6 +104,8 @@ MainWindow::MainWindow(QWidget *parent)
 	connect(&ticker, &QTimer::timeout, this, &MainWindow::tick);
 	connect(&timer, &QTimer::timeout, this, &MainWindow::endSnooze);
 	connect(&test, &QTimer::timeout, this, &MainWindow::stopAudio);
+	timer.setInterval(snooze * 1000);
+	test.setInterval(2000);
 	test.setSingleShot(true);
 	ticker.start(999);
 	tick();
@@ -100,16 +119,34 @@ MainWindow::~MainWindow() {
 	SDL_CloseAudio();
 }
 
+void MainWindow::closeEvent(QCloseEvent *e) {
+	if (state == Alarm::Active) {
+		setState(passwordSuccess() ? (snooze ? Alarm::Snooze : Alarm::Off) : state);
+	}
+	if (state == Alarm::Snooze) {
+		setState(quizSuccess() ? Alarm::Off : state);
+	}
+	if (state < Alarm::Snooze) {
+		e->accept();
+	} else {
+		e->ignore();
+	}
+}
+
+void MainWindow::print(const std::string &message) {
+	std::cout << message << std::endl;
+}
+
 void MainWindow::setState(Alarm s) {
 	if (s == state) {
 		return;
 	}
 	QPalette p = ui->lcdClock->palette();
 	switch (s) {
-	case Alarm::Off:
+	default:
+		timer.stop();
 		p.setColor(p.WindowText, QColor(128, 128, 128));
 		p.setColor(p.Background, QColor(128, 128, 128, 16));
-		timer.stop();
 		break;
 	case Alarm::On:
 		p.setColor(p.WindowText, QColor(000, 255, 255));
@@ -122,9 +159,9 @@ void MainWindow::setState(Alarm s) {
 		stopAudio();
 		break;
 	case Alarm::Active:
+		test.stop();
 		p.setColor(p.WindowText, QColor(255, 128, 128));
 		p.setColor(p.Background, QColor(255, 128, 128, 16));
-		lpd.sendFloat(dest_tgl, 0);
 		lpd.sendFloat(dest_tgl, 1);
 		startAudio();
 		break;
@@ -134,6 +171,9 @@ void MainWindow::setState(Alarm s) {
 }
 
 void MainWindow::startAudio() {
+	if (dev) {
+		return;
+	}
 	SDL_AudioSpec spec = {};
 	spec.freq = freq;
 	spec.format = AUDIO_F32;
@@ -147,6 +187,9 @@ void MainWindow::startAudio() {
 }
 
 void MainWindow::stopAudio() {
+	if (!dev) {
+		return;
+	}
 	lpd.computeAudio(false);
 	SDL_CloseAudioDevice(dev);
 	dev = 0;
@@ -157,30 +200,62 @@ void MainWindow::endSnooze() {
 }
 
 void MainWindow::tick() {
-	QTime time = QTime::currentTime();
-	QString text = time.toString("hh:mm:ss");
+	QTime now = QTime::currentTime();
+	QString text = now.toString("hh:mm:ss");
 	ui->lcdClock->display(text);
 
 	if (state == Alarm::On
-	 && time.hour()   == ui->spnHour->value()
-	 && time.minute() == ui->spnMinute->value()
-	 && time.second() == ui->spnSecond->value()) {
+	 && now.hour()   == ui->spnHour->value()
+	 && now.minute() == ui->spnMinute->value()
+	 && now.second() == ui->spnSecond->value()) {
 		setState(Alarm::Active);
-		timer.start(snooze * 1000);
+		if (snooze) {
+			timer.start();
+		}
+	}
+}
+
+bool MainWindow::passwordSuccess() {
+	if (password.isEmpty()) {
+		return true;
+	}
+	bool ok;
+	QString text = QInputDialog::getText(this, tr("Password"),
+		tr("Password") + ':', QLineEdit::Normal, QString(), &ok);
+	return (ok && text == password);
+}
+
+bool MainWindow::quizSuccess() {
+	if (questions == 0) {
+		return true;
+	}
+	answered = QuizDialog::getProgress(this, questions, answered);
+	if (answered >= questions) {
+		answered = 0;
+		return true;
+	} else {
+		return false;
 	}
 }
 
 // Slots
+
 void MainWindow::on_lcdClock_pressed() {
-	setState(state == Alarm::Active ? Alarm::Snooze : (Alarm)!(int)state);
+	Alarm s;
+	if (state == Alarm::Active) {
+		s = passwordSuccess() ? (snooze ? Alarm::Snooze : Alarm::Off) : state;
+	} else if (state == Alarm::Snooze) {
+		s = quizSuccess() ? Alarm::Off : state;
+	} else {
+		s = (Alarm)!(int)state;
+	}
+	setState(s);
 }
 
 void MainWindow::on_btnTest_pressed() {
 	if (state != Alarm::Active) {
-		if (!dev) {
-			startAudio();
-		}
-		test.start(2000);
+		startAudio();
+		test.start();
 	}
 	lpd.sendBang(dest_test);
 }

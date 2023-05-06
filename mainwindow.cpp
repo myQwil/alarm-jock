@@ -36,7 +36,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 	, ui(new Ui::MainWindow)
 	, dev(0)
 	, state(Alarm::Off)
-	, snooze(1800)
+	, snooze(0)
 	, questions(0)
 	, answered(0)
 {

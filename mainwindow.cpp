@@ -1,6 +1,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "quizdialog.h"
+#include "pwdialog.h"
+
 #include <QStandardPaths>
 #include <QInputDialog>
 #include <QCloseEvent>
@@ -219,10 +221,7 @@ bool MainWindow::passwordSuccess() {
 	if (password.isEmpty()) {
 		return true;
 	}
-	bool ok;
-	QString text = QInputDialog::getText(this, tr("Password"),
-		tr("Password") + ':', QLineEdit::Normal, QString(), &ok);
-	return (ok && text == password);
+	return PwDialog::getPass(this, password);
 }
 
 bool MainWindow::quizSuccess() {

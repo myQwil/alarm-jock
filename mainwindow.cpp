@@ -15,7 +15,10 @@ enum {
 	, channels = 2
 };
 
-const static char *devName = "Built-in Audio Analog Stereo";
+const static char *devPref[] = {
+	  "Built-in Audio Analog Stereo"
+	, "GK104 HDMI Audio Controller Digital Stereo (HDMI)"
+};
 
 const static int exponent =
 	log( channels * sizeof(float) * pd::PdBase::blockSize() ) / M_LN2;
@@ -183,7 +186,15 @@ void MainWindow::startAudio() {
 	spec.samples = samples;
 	spec.callback = callback;
 	spec.userdata = &lpd;
-	dev = SDL_OpenAudioDevice(devName, 0, &spec, &spec, 0);
+	for (const char *s : devPref) {
+		dev = SDL_OpenAudioDevice(s, 0, &spec, &spec, 0);
+		if (dev) {
+			break;
+		}
+	}
+	if (!dev) {
+		dev = SDL_OpenAudioDevice(NULL, 0, &spec, &spec, 0);
+	}
 	SDL_PauseAudioDevice(dev, 0);
 	lpd.computeAudio(true);
 }

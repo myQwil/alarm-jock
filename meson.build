@@ -5,7 +5,7 @@ project('alarmjock', 'cpp'
 
 sdl2_dep = dependency('sdl2')
 
-libpd_dir = '/home/mike/z/libpd'
+libpd_dir = '/path/to/libpd'
 libpd_include = [
 	  libpd_dir + '/libpd_wrapper'
 	, libpd_dir + '/libpd_wrapper/util'
